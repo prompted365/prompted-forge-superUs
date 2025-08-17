@@ -39,6 +39,50 @@ export { MemoryBridgeStub } from './bridge/memory-bridge-stub';
 // Memory Orchestrator
 export * from './orchestrator';
 
+// Context Analysis (Phase 3.3)
+export type {
+  ContextAnalysis as ContextAnalysisV33,
+  ContextInput,
+  ContextEngineConfig,
+  IntentType,
+  Entity,
+  Sentiment
+} from './types/context';
+export {
+  IntentType as IntentTypeEnum,
+  EntitySchema,
+  SentimentSchema,
+  ContextAnalysisSchema,
+  ContextEngineConfigSchema,
+  ContextInputSchema
+} from './types/context';
+export { ContextEngine } from './context/engine';
+
+// Policy Framework (Phase 3.3)
+export type {
+  PolicyEvaluationResult,
+  PolicyEvaluationInput,
+  PolicyFrameworkConfig,
+  PolicyDecision,
+  PolicyActionType,
+  RetentionPolicy,
+  CompressionPolicy,
+  SafetyPolicy,
+  AccessControlPolicy
+} from './types/policy';
+export {
+  PolicyActionType as PolicyActionTypeEnum,
+  PolicyDecisionSchema,
+  RetentionPolicySchema,
+  CompressionPolicySchema,
+  SafetyPolicySchema,
+  AccessControlPolicySchema,
+  PolicyFrameworkConfigSchema,
+  PolicyEvaluationResultSchema,
+  PolicyEvaluationInputSchema
+} from './types/policy';
+export { PolicyFramework } from './policies/framework';
+
 // Default configuration helpers
 export function createDefaultMCPServerConfig(overrides: Partial<any> = {}): any {
   return {
