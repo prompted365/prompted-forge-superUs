@@ -1,5 +1,7 @@
 // Runtime Package Main Export
 import winston from 'winston';
+import { NexusClient } from './nexus-client';
+import { MCPClientManager } from './mcp-client/mcp-client';
 
 // Core Nexus client
 export { NexusClient } from './nexus-client';
@@ -27,7 +29,7 @@ export type {
 } from './mcp-client/mcp-client';
 
 // Factory functions
-export const createNexusClient = (config?: any): NexusClient => {
+export const createNexusClient = (config?: any) => {
   const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
     format: winston.format.combine(
@@ -40,7 +42,7 @@ export const createNexusClient = (config?: any): NexusClient => {
   return new NexusClient(config, logger);
 };
 
-export const createMCPClientManager = (nexusBaseUrl?: string): MCPClientManager => {
+export const createMCPClientManager = (nexusBaseUrl?: string) => {
   const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
     format: winston.format.combine(

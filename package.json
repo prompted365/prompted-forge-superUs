@@ -6,12 +6,15 @@
     "packages/*",
     "apps/*"
   ],
-  "packageManager": "npm@10.9.2",
   "scripts": {
-    "dev": "turbo run dev --parallel",
     "build": "turbo run build",
-    "test": "turbo run test",
+    "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "build:memory": "npm run -w @prompted-forge/memory build",
+    "test:memory": "npm run -w @prompted-forge/memory test",
+    "typecheck:memory": "npm run -w @prompted-forge/memory typecheck",
     "clean": "turbo run clean",
     "db:setup": "scripts/setup-db.sh",
     "nexus:test": "curl http://localhost:8000/health"
@@ -29,8 +32,12 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.203.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@types/uuid": "^10.0.0",
     "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "zod": "^4.0.17"

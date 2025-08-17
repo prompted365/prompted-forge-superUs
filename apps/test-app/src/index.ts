@@ -45,7 +45,7 @@ async function main() {
     // List available models
     const models = await nexusClient.listModels();
     logger.info(`📋 Found ${models.length} models:`, {
-      models: models.map(m => m.id),
+      models: models.map((m: any) => m.id),
     });
 
     // Create a test tenant

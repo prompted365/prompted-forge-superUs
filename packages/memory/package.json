@@ -1,0 +1,39 @@
+{
+  "name": "@prompted-forge/memory",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint --max-warnings=0 \"src/**/*.ts\"",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "clean": "rm -rf dist",
+    "smoke": "npx ts-node src/smoke.ts",
+    "smoke:comprehensive": "npx ts-node src/smoke-comprehensive.ts",
+    "smoke:enhanced": "npx ts-node scripts/enhanced-smoke-test.ts"
+  },
+  "dependencies": {
+    "@prompted-forge/registry": "*",
+    "@prompted-forge/runtime": "*",
+    "@types/node-cron": "^3.0.0",
+    "@types/pg": "^8.10.0",
+    "@types/uuid": "^9.0.0",
+    "ioredis": "^5.3.0",
+    "node-cron": "^3.0.0",
+    "pg": "^8.11.0",
+    "uuid": "^9.0.0",
+    "winston": "^3.10.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  }
+}

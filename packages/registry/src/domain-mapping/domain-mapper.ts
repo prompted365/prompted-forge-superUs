@@ -1,4 +1,4 @@
-import { winston } from 'winston';
+import winston from 'winston';
 import { z } from 'zod';
 
 // Domain Mapping Types

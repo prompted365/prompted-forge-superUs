@@ -3,8 +3,6 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
-    "rootDir": "./",
-    "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,22 +10,20 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "composite": true,
-    "incremental": true,
-    "tsBuildInfoFile": "./.tsbuildinfo",
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@prompted-forge/registry": ["./packages/registry/src"],
-      "@prompted-forge/runtime": ["./packages/runtime/src"],
-      "@prompted-forge/memory": ["./packages/memory/src"],
-      "@prompted-forge/observability": ["./packages/observability/src"]
-    }
+    "composite": true,
+    "incremental": true
   },
-  "include": ["packages/*/src/**/*", "apps/*/src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "files": [],
+  "references": [
+    { "path": "./packages/registry" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/memory" },
+    { "path": "./packages/observability" },
+    { "path": "./apps/test-app" }
+  ]
 }
