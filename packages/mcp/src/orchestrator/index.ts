@@ -11,6 +11,9 @@ export * from './orchestrator-interfaces';
 // Stub implementation
 export { MemoryOrchestratorStub } from './memory-orchestrator-stub';
 
+// Enhanced implementation with context and policy integration
+export { EnhancedMemoryOrchestrator } from './enhanced-orchestrator';
+
 // Configuration helpers
 export {
   createDefaultOrchestratorConfig,
