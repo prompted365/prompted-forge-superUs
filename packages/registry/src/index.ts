@@ -1,5 +1,7 @@
 // Registry Package Main Export
 import winston from 'winston';
+import { CapabilityRegistryManager } from './capability-registry/registry';
+import { DomainMapper } from './domain-mapping/domain-mapper';
 
 // Core types
 export * from './types';
@@ -38,13 +40,13 @@ export const createLogger = (serviceName: string): winston.Logger => {
 };
 
 // Registry factory
-export const createRegistryManager = (): CapabilityRegistryManager => {
+export const createRegistryManager = () => {
   const logger = createLogger('registry');
   return new CapabilityRegistryManager(logger);
 };
 
 // Domain mapper factory
-export const createDomainMapper = (): DomainMapper => {
+export const createDomainMapper = () => {
   const logger = createLogger('domain-mapper');
   return new DomainMapper(logger);
 };

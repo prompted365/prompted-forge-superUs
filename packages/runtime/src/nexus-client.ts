@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { winston } from 'winston';
+import winston from 'winston';
 import { z } from 'zod';
 
 // Nexus API Types
@@ -305,11 +305,12 @@ export class NexusClient {
     return await this.sampleLLM(messages, samplingConfig);
   }
 
-  // Streaming LLM sampling
-  async *streamLLM(
+  // Streaming support - simplified for now
+  async streamLLM(
     messages: ChatMessage[],
-    config: SamplingConfig
-  ): AsyncGenerator<string, void, unknown> {
+    config: SamplingConfig,
+    onChunk: (chunk: string) => void
+  ): Promise<void> {
     try {
       const request: ChatCompletionRequest = {
         model: config.model,
@@ -337,7 +338,7 @@ export class NexusClient {
               const data = JSON.parse(line.slice(6));
               const content = data.choices?.[0]?.delta?.content;
               if (content) {
-                yield content;
+                onChunk(content);
               }
             } catch (parseError) {
               this.logger.warn('Failed to parse streaming chunk', { line, parseError });

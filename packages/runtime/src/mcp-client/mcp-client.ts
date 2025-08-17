@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { winston } from 'winston';
+import winston from 'winston';
 import { z } from 'zod';
 import { AccessValidationResult } from '@prompted-forge/registry';
 
