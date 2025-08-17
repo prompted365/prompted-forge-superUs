@@ -14,15 +14,15 @@ jobs:
   typecheck:
     name: typecheck
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/mcp
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: npm ci
-      - run: npm run typecheck
+      # 👇 Build memory so its dist + d.ts exist for TS resolver
+      - run: npm run build:memory
+      # 👇 Now typecheck MCP (no emit)
+      - run: npm run typecheck:mcp
 
   validate-phase-3-2:
     name: validate-phase-3-2
@@ -30,15 +30,12 @@ jobs:
     needs: [typecheck]
     env:
       BUILD_SHA: ${{ github.sha }}
-    defaults:
-      run:
-        working-directory: packages/mcp
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: npm ci
-      - run: npm run validate:phase3_2
+      - run: npm run validate:phase3_2 --workspace=@prompted-forge/mcp
 
   tests:
     name: tests (${{ matrix.impl }})
@@ -46,9 +43,6 @@ jobs:
     needs: [typecheck, validate-phase-3-2]
     strategy:
       matrix: { impl: [stub, full] }
-    defaults:
-      run:
-        working-directory: packages/mcp
     env:
       PF_MEMORY_IMPL: ${{ matrix.impl }}
       PF_ENFORCE_FULL_FALLBACK: "true"
@@ -58,4 +52,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: npm ci
-      - run: npm test -- --ci --reporters=default
+      - run: npm run build:memory
+      - run: npm test --workspace=@prompted-forge/mcp -- --ci --reporters=default
