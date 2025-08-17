@@ -60,9 +60,15 @@ export class WorkingMemoryFactory extends MemoryTierFactory<IWorkingMemory> {
   }
 
   async create(): Promise<IWorkingMemory> {
-    const { WorkingMemoryStub } = await import('./working/working-memory-stub');
+    const impl = process.env.PF_MEMORY_IMPL_WORKING ?? process.env.PF_MEMORY_IMPL ?? 'stub';
     const policy = this.getPolicy('working');
     
+    if (impl === 'full') {
+      // TODO: Import real WorkingMemoryService when available
+      this.logger.warn('Full WorkingMemory implementation not yet available, falling back to stub');
+    }
+    
+    const { WorkingMemoryStub } = await import('./working/working-memory-stub');
     return new WorkingMemoryStub(
       this.config.database.redis,
       this.config.database.postgresql,
@@ -79,9 +85,15 @@ export class EpisodicMemoryFactory extends MemoryTierFactory<IEpisodicMemory> {
   }
 
   async create(): Promise<IEpisodicMemory> {
-    const { EpisodicMemoryStub } = await import('./episodic/episodic-memory-stub');
+    const impl = process.env.PF_MEMORY_IMPL_EPISODIC ?? process.env.PF_MEMORY_IMPL ?? 'stub';
     const policy = this.getPolicy('episodic');
     
+    if (impl === 'full') {
+      // TODO: Import real EpisodicMemoryService when available
+      this.logger.warn('Full EpisodicMemory implementation not yet available, falling back to stub');
+    }
+    
+    const { EpisodicMemoryStub } = await import('./episodic/episodic-memory-stub');
     return new EpisodicMemoryStub(
       this.config.database.postgresql,
       policy,
@@ -97,9 +109,15 @@ export class SemanticMemoryFactory extends MemoryTierFactory<ISemanticMemory> {
   }
 
   async create(): Promise<ISemanticMemory> {
-    const { SemanticMemoryStub } = await import('./semantic/semantic-memory-stub');
+    const impl = process.env.PF_MEMORY_IMPL_SEMANTIC ?? process.env.PF_MEMORY_IMPL ?? 'stub';
     const policy = this.getPolicy('semantic');
     
+    if (impl === 'full') {
+      // TODO: Import real SemanticMemoryService when available
+      this.logger.warn('Full SemanticMemory implementation not yet available, falling back to stub');
+    }
+    
+    const { SemanticMemoryStub } = await import('./semantic/semantic-memory-stub');
     return new SemanticMemoryStub(
       this.config.database.postgresql,
       policy,
@@ -115,9 +133,15 @@ export class SharedMemoryFactory extends MemoryTierFactory<ISharedMemory> {
   }
 
   async create(): Promise<ISharedMemory> {
-    const { SharedMemoryStub } = await import('./shared/shared-memory-stub');
+    const impl = process.env.PF_MEMORY_IMPL_SHARED ?? process.env.PF_MEMORY_IMPL ?? 'stub';
     const policy = this.getPolicy('shared');
     
+    if (impl === 'full') {
+      // TODO: Import real SharedMemoryService when available
+      this.logger.warn('Full SharedMemory implementation not yet available, falling back to stub');
+    }
+    
+    const { SharedMemoryStub } = await import('./shared/shared-memory-stub');
     return new SharedMemoryStub(
       this.config.database.postgresql,
       this.config.database.redis,

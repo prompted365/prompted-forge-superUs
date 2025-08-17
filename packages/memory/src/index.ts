@@ -4,6 +4,8 @@
 export * from './interfaces';
 export * from './utils';
 export * from './factory';
+export * from './errors';
+export * from './telemetry';
 
 // Export stub implementations
 export { WorkingMemoryStub } from './working/working-memory-stub';

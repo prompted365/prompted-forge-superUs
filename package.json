@@ -6,12 +6,15 @@
     "packages/*",
     "apps/*"
   ],
-  "packageManager": "npm@10.9.2",
   "scripts": {
-    "dev": "turbo run dev --parallel",
     "build": "turbo run build",
-    "test": "turbo run test",
+    "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "build:memory": "npm run -w @prompted-forge/memory build",
+    "test:memory": "npm run -w @prompted-forge/memory test",
+    "typecheck:memory": "npm run -w @prompted-forge/memory typecheck",
     "clean": "turbo run clean",
     "db:setup": "scripts/setup-db.sh",
     "nexus:test": "curl http://localhost:8000/health"

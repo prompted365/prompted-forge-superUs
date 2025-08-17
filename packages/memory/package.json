@@ -4,11 +4,15 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint --max-warnings=0 \"src/**/*.ts\"",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "test": "jest",
-    "lint": "eslint src/**/*.ts",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "smoke": "npx ts-node src/smoke.ts",
+    "smoke:comprehensive": "npx ts-node src/smoke-comprehensive.ts",
+    "smoke:enhanced": "npx ts-node scripts/enhanced-smoke-test.ts"
   },
   "dependencies": {
     "@prompted-forge/registry": "*",

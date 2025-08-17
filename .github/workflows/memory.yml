@@ -1,0 +1,39 @@
+name: Memory Package CI
+on: 
+  push:
+    paths:
+      - 'packages/memory/**'
+      - '.github/workflows/memory.yml'
+  pull_request:
+    paths:
+      - 'packages/memory/**'
+      - '.github/workflows/memory.yml'
+
+jobs:
+  memory-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with: 
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Type check memory package
+        run: npm run -w @prompted-forge/memory typecheck
+        
+      - name: Build memory package
+        run: npm run -w @prompted-forge/memory build
+        
+      - name: Test memory package
+        run: npm run -w @prompted-forge/memory test
+        
+      - name: Run smoke tests
+        run: npm run -w @prompted-forge/memory smoke
+        working-directory: ./packages/memory
