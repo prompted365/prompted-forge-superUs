@@ -1,6 +1,7 @@
 import winston from 'winston';
-import { 
-  IWorkingMemory, 
+import {
+  IWorkingMemory,
+  IMemoryTier,
   MemoryTier,
   MemoryEntry,
   MemoryContext,
@@ -9,314 +10,171 @@ import {
   RetentionPolicy,
   MemoryPolicyConfig
 } from '../interfaces';
+import { Clock, TokenCounter } from '../utils';
+
+type ContextItem = { content: any; metadata?: any; timestamp: Date };
 
 export class WorkingMemoryStub implements IWorkingMemory {
-  public readonly tier = MemoryTier.WORKING;
-  private sessions = new Map<string, Map<string, MemoryEntry>>();
-  private checkpoints = new Map<string, string>();
-  
+  tier: MemoryTier = MemoryTier.WORKING;
+
+  private entries = new Map<string, MemoryEntry>();
+  private sessionContext = new Map<string, ContextItem[]>();
+  private checkpoints = new Map<string, Map<string, ContextItem[]>>();
+
   constructor(
     private redisConfig: any,
     private postgresConfig: any,
     private policy: MemoryPolicyConfig,
     private logger: winston.Logger
   ) {
-    this.logger.info('Working Memory initialized (stub implementation)');
+    this.logger.info('WorkingMemoryStub initialized');
   }
 
-  // Core IMemoryTier operations
-  async read(key: string, context: MemoryContext): Promise<MemoryResult> {
-    const session = this.sessions.get(context.sessionId);
-    const entry = session?.get(key);
-    
-    return {
-      success: !!entry,
-      data: entry,
-      metadata: {
-        tier: this.tier,
-        operationType: 'read',
-        latencyMs: 10,
-      }
-    };
+  // ---------- IMemoryTier core ----------
+  async read(key: string, _ctx: MemoryContext): Promise<MemoryResult> {
+    const start = Clock.nowMs();
+    const data = this.entries.get(key);
+    return { success: !!data, data, metadata: { tier: this.tier, operationType: 'read', latencyMs: Date.now() - start } };
   }
 
-  async write(key: string, entry: MemoryEntry, context: MemoryContext): Promise<MemoryResult> {
-    if (!this.sessions.has(context.sessionId)) {
-      this.sessions.set(context.sessionId, new Map());
-    }
-    
-    const session = this.sessions.get(context.sessionId)!;
-    session.set(key, { ...entry, id: key, sessionId: context.sessionId });
-    
-    return {
-      success: true,
-      data: key,
-      metadata: {
-        tier: this.tier,
-        operationType: 'write',
-        latencyMs: 15,
-      }
-    };
+  async write(key: string, entry: MemoryEntry, _ctx: MemoryContext): Promise<MemoryResult> {
+    const start = Clock.nowMs();
+    this.entries.set(key, entry);
+    return { success: true, metadata: { tier: this.tier, operationType: 'write', latencyMs: Date.now() - start } };
   }
 
-  async update(key: string, updates: Partial<MemoryEntry>, context: MemoryContext): Promise<MemoryResult> {
-    const session = this.sessions.get(context.sessionId);
-    const entry = session?.get(key);
-    
-    if (!entry) {
-      return {
-        success: false,
-        error: 'Entry not found',
-        metadata: { tier: this.tier, operationType: 'update', latencyMs: 5 }
-      };
-    }
-    
-    const updated = { ...entry, ...updates };
-    session!.set(key, updated);
-    
-    return {
-      success: true,
-      data: updated,
-      metadata: { tier: this.tier, operationType: 'update', latencyMs: 10 }
-    };
+  async update(key: string, updates: Partial<MemoryEntry>, _ctx: MemoryContext): Promise<MemoryResult> {
+    const start = Clock.nowMs();
+    const cur = this.entries.get(key);
+    if (!cur) return { success: false, error: 'not_found', metadata: { tier: this.tier, operationType: 'update', latencyMs: Date.now() - start } };
+    this.entries.set(key, { ...cur, ...updates });
+    return { success: true, metadata: { tier: this.tier, operationType: 'update', latencyMs: Date.now() - start } };
   }
 
-  async delete(key: string, context: MemoryContext): Promise<MemoryResult> {
-    const session = this.sessions.get(context.sessionId);
-    const deleted = session?.delete(key) || false;
-    
-    return {
-      success: deleted,
-      metadata: { tier: this.tier, operationType: 'delete', latencyMs: 5 }
-    };
+  async delete(key: string, _ctx: MemoryContext): Promise<MemoryResult> {
+    const start = Clock.nowMs();
+    const ok = this.entries.delete(key);
+    return { success: ok, metadata: { tier: this.tier, operationType: 'delete', latencyMs: Date.now() - start } };
   }
 
   async compress(strategy: CompressionStrategy): Promise<MemoryResult> {
-    let totalRemoved = 0;
-    
-    for (const [sessionId, session] of this.sessions) {
-      const entries = Array.from(session.entries());
-      if (entries.length > 100) { // Arbitrary limit
-        const toRemove = entries.slice(0, entries.length - 80);
-        toRemove.forEach(([key]) => session.delete(key));
-        totalRemoved += toRemove.length;
+    // Minimal sliding-window trim across sessions when over 90% of maxSize
+    if (strategy !== CompressionStrategy.SLIDING_WINDOW || !this.policy.maxSize) {
+      return { success: true, metadata: { tier: this.tier, operationType: 'compress', latencyMs: 0 } };
+    }
+    let removed = 0;
+    for (const [sessionId, items] of this.sessionContext.entries()) {
+      let tokens = TokenCounter.countArray(items.map(i => i.content));
+      const limit = Math.floor(this.policy.maxSize * 0.9);
+      if (tokens > limit) {
+        // drop oldest until within limit
+        while (tokens > limit && items.length > 0) {
+          const dropped = items.shift();
+          removed += 1;
+          tokens -= TokenCounter.count(dropped?.content ?? '');
+        }
+        this.sessionContext.set(sessionId, items);
       }
     }
-    
-    return {
-      success: true,
-      data: { removed: totalRemoved },
-      metadata: { tier: this.tier, operationType: 'compress', latencyMs: 50 }
-    };
+    return { success: true, data: { removed }, metadata: { tier: this.tier, operationType: 'compress', latencyMs: 0 } };
   }
 
   async applyRetention(policy: RetentionPolicy): Promise<MemoryResult> {
-    // Simple retention - remove sessions older than 24 hours
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    let removed = 0;
-    
-    for (const [sessionId, session] of this.sessions) {
-      const entries = Array.from(session.values());
-      const hasOldEntries = entries.some(e => e.timestamp.getTime() < cutoff);
-      if (hasOldEntries) {
-        this.sessions.delete(sessionId);
-        removed++;
-      }
-    }
-    
+    if (policy !== RetentionPolicy.SESSION_BASED) return { success: true };
+    // nothing to do in stub
+    return { success: true, metadata: { tier: this.tier, operationType: 'applyRetention', latencyMs: 0 } };
+  }
+
+  async search(query: string, ctx: MemoryContext, limit = 10): Promise<MemoryResult<MemoryEntry[]>> {
+    const entries = [...this.entries.values()].filter(e =>
+      (!ctx.sessionId || e.sessionId === ctx.sessionId) &&
+      JSON.stringify(e.content).toLowerCase().includes(query.toLowerCase())
+    );
+    return { success: true, data: entries.slice(0, limit), metadata: { tier: this.tier, operationType: 'search', latencyMs: 0 } };
+  }
+
+  async list(_ctx: MemoryContext, limit = 50, offset = 0): Promise<MemoryResult<MemoryEntry[]>> {
+    const arr = [...this.entries.values()].slice(offset, offset + limit);
+    return { success: true, data: arr, metadata: { tier: this.tier, operationType: 'list', latencyMs: 0 } };
+  }
+
+  async getStats(): Promise<{ entryCount: number; totalSize: number; oldestEntry?: Date; newestEntry?: Date; compressionRatio?: number; }> {
+    const all = [...this.entries.values()];
+    const times = all.map(e => e.timestamp?.getTime?.() ?? 0).filter(Boolean).sort((a,b) => a-b);
     return {
-      success: true,
-      data: { sessionsRemoved: removed },
-      metadata: { tier: this.tier, operationType: 'retention', latencyMs: 30 }
+      entryCount: all.length,
+      totalSize: JSON.stringify(all).length,
+      oldestEntry: times.length ? new Date(times[0]) : undefined,
+      newestEntry: times.length ? new Date(times[times.length - 1]) : undefined,
+      compressionRatio: 0.8
     };
   }
 
-  async search(query: string, context: MemoryContext, limit = 10): Promise<MemoryResult<MemoryEntry[]>> {
-    const session = this.sessions.get(context.sessionId);
-    if (!session) {
-      return {
-        success: true,
-        data: [],
-        metadata: { tier: this.tier, operationType: 'search', latencyMs: 5 }
-      };
-    }
-    
-    const entries = Array.from(session.values())
-      .filter(e => JSON.stringify(e.content).toLowerCase().includes(query.toLowerCase()))
-      .slice(0, limit);
-      
-    return {
-      success: true,
-      data: entries,
-      metadata: { tier: this.tier, operationType: 'search', latencyMs: 20 }
-    };
-  }
+  async isHealthy(): Promise<boolean> { return true; }
 
-  async list(context: MemoryContext, limit = 50, offset = 0): Promise<MemoryResult<MemoryEntry[]>> {
-    const session = this.sessions.get(context.sessionId);
-    if (!session) {
-      return {
-        success: true,
-        data: [],
-        metadata: { tier: this.tier, operationType: 'list', latencyMs: 5 }
-      };
-    }
-    
-    const entries = Array.from(session.values())
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(offset, offset + limit);
-      
-    return {
-      success: true,
-      data: entries,
-      metadata: { tier: this.tier, operationType: 'list', latencyMs: 15 }
-    };
-  }
-
-  async getStats() {
-    const totalEntries = Array.from(this.sessions.values())
-      .reduce((sum, session) => sum + session.size, 0);
-      
-    return {
-      entryCount: totalEntries,
-      totalSize: totalEntries * 1024, // Rough estimate
-      oldestEntry: new Date(),
-      newestEntry: new Date(),
-      compressionRatio: 0.8,
-    };
-  }
-
-  async isHealthy(): Promise<boolean> {
-    return true;
-  }
-
-  // Working Memory specific methods
-  async createSession(sessionId: string, context: MemoryContext): Promise<MemoryResult> {
-    if (this.sessions.has(sessionId)) {
-      return {
-        success: false,
-        error: 'Session already exists',
-        metadata: { tier: this.tier, operationType: 'createSession', latencyMs: 5 }
-      };
-    }
-    
-    this.sessions.set(sessionId, new Map());
-    return {
-      success: true,
-      data: sessionId,
-      metadata: { tier: this.tier, operationType: 'createSession', latencyMs: 10 }
-    };
+  // ---------- IWorkingMemory ----------
+  async createSession(sessionId: string, _context: MemoryContext): Promise<MemoryResult> {
+    if (!this.sessionContext.has(sessionId)) this.sessionContext.set(sessionId, []);
+    return { success: true, metadata: { tier: this.tier, operationType: 'createSession', latencyMs: 0 } };
   }
 
   async endSession(sessionId: string): Promise<MemoryResult> {
-    const deleted = this.sessions.delete(sessionId);
-    return {
-      success: deleted,
-      metadata: { tier: this.tier, operationType: 'endSession', latencyMs: 5 }
-    };
+    this.sessionContext.delete(sessionId);
+    this.checkpoints.delete(sessionId);
+    return { success: true, metadata: { tier: this.tier, operationType: 'endSession', latencyMs: 0 } };
   }
 
   async addToContext(sessionId: string, content: any, metadata?: any): Promise<MemoryResult> {
-    const key = `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const entry: MemoryEntry = {
-      id: key,
-      sessionId,
-      content,
-      metadata: metadata || {},
-      timestamp: new Date(),
-    };
-    
-    return this.write(key, entry, { sessionId, priority: 'medium' });
+    const items = this.sessionContext.get(sessionId) ?? [];
+    items.push({ content, metadata, timestamp: new Date() });
+    this.sessionContext.set(sessionId, items);
+    return { success: true, metadata: { tier: this.tier, operationType: 'addToContext', latencyMs: 0, tokenCount: await this.getTokenCount(sessionId) } };
   }
 
-  async getContextWindow(sessionId: string, tokenLimit = 4000): Promise<MemoryResult<any[]>> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      return {
-        success: false,
-        error: 'Session not found',
-        metadata: { tier: this.tier, operationType: 'getContextWindow', latencyMs: 5 }
-      };
+  async getContextWindow(sessionId: string, tokenLimit = this.policy.maxSize ?? 128000): Promise<MemoryResult<any[]>> {
+    const items = this.sessionContext.get(sessionId) ?? [];
+    const out: any[] = [];
+    let tokens = 0;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const t = TokenCounter.count(items[i].content);
+      if (tokens + t > tokenLimit) break;
+      out.unshift(items[i].content);
+      tokens += t;
     }
-    
-    const entries = Array.from(session.values())
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, Math.floor(tokenLimit / 100)); // Rough token estimation
-      
-    return {
-      success: true,
-      data: entries.map(e => e.content),
-      metadata: {
-        tier: this.tier,
-        operationType: 'getContextWindow',
-        latencyMs: 15,
-        tokenCount: entries.length * 100
-      }
-    };
+    return { success: true, data: out, metadata: { tier: this.tier, operationType: 'getContextWindow', latencyMs: 0, tokenCount: tokens } };
   }
 
   async createCheckpoint(sessionId: string): Promise<MemoryResult<string>> {
-    const checkpointId = `cp_${Date.now()}`;
-    this.checkpoints.set(checkpointId, sessionId);
-    
-    return {
-      success: true,
-      data: checkpointId,
-      metadata: { tier: this.tier, operationType: 'createCheckpoint', latencyMs: 10 }
-    };
+    const id = `ckpt_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const snap = (this.sessionContext.get(sessionId) ?? []).map(x => ({ ...x }));
+    const map = this.checkpoints.get(sessionId) ?? new Map<string, ContextItem[]>();
+    map.set(id, snap);
+    this.checkpoints.set(sessionId, map);
+    return { success: true, data: id, metadata: { tier: this.tier, operationType: 'createCheckpoint', latencyMs: 0 } };
   }
 
   async restoreFromCheckpoint(sessionId: string, checkpointId: string): Promise<MemoryResult> {
-    // Stub implementation - would restore session state in real implementation
-    return {
-      success: this.checkpoints.has(checkpointId),
-      metadata: { tier: this.tier, operationType: 'restoreFromCheckpoint', latencyMs: 20 }
-    };
+    const map = this.checkpoints.get(sessionId);
+    if (!map || !map.has(checkpointId)) return { success: false, error: 'checkpoint_not_found' };
+    this.sessionContext.set(sessionId, map.get(checkpointId)!.map(x => ({ ...x })));
+    return { success: true, metadata: { tier: this.tier, operationType: 'restoreFromCheckpoint', latencyMs: 0 } };
   }
 
   async getTokenCount(sessionId: string): Promise<number> {
-    const session = this.sessions.get(sessionId);
-    if (!session) return 0;
-    
-    // Rough token count estimation
-    return Array.from(session.values())
-      .reduce((sum, entry) => sum + JSON.stringify(entry.content).length / 4, 0);
+    const items = this.sessionContext.get(sessionId) ?? [];
+    return TokenCounter.countArray(items.map(i => i.content));
   }
 
   async trimToTokenLimit(sessionId: string, maxTokens: number): Promise<MemoryResult> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      return {
-        success: false,
-        error: 'Session not found',
-        metadata: { tier: this.tier, operationType: 'trimToTokenLimit', latencyMs: 5 }
-      };
+    const items = this.sessionContext.get(sessionId) ?? [];
+    let tokens = TokenCounter.countArray(items.map(i => i.content));
+    let removed = 0;
+    while (tokens > maxTokens && items.length) {
+      const dropped = items.shift();
+      removed++;
+      tokens -= TokenCounter.count(dropped?.content ?? '');
     }
-    
-    const entries = Array.from(session.entries());
-    entries.sort((a, b) => a[1].timestamp.getTime() - b[1].timestamp.getTime());
-    
-    let currentTokens = 0;
-    let keepCount = 0;
-    
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const tokens = JSON.stringify(entries[i][1].content).length / 4;
-      if (currentTokens + tokens <= maxTokens) {
-        currentTokens += tokens;
-        keepCount++;
-      } else {
-        break;
-      }
-    }
-    
-    // Remove oldest entries
-    const toRemove = entries.slice(0, entries.length - keepCount);
-    toRemove.forEach(([key]) => session.delete(key));
-    
-    return {
-      success: true,
-      data: { removed: toRemove.length, remainingTokens: currentTokens },
-      metadata: { tier: this.tier, operationType: 'trimToTokenLimit', latencyMs: 25 }
-    };
+    this.sessionContext.set(sessionId, items);
+    return { success: true, data: { removed, tokens }, metadata: { tier: this.tier, operationType: 'trimToTokenLimit', latencyMs: 0, tokenCount: tokens } };
   }
 }
