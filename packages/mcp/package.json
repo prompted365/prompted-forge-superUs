@@ -23,7 +23,10 @@
     "check-perf-budget": "npx ts-node scripts/check-perf-budget.ts",
     "test:health-endpoint": "npx ts-node tests/health-endpoint.test.ts",
     "test:version-endpoint": "npx ts-node tests/version-endpoint.test.ts",
-    "generate-contracts-snapshot": "npx ts-node scripts/generate-contracts-snapshot.ts"
+    "generate-contracts-snapshot": "npx ts-node scripts/generate-contracts-snapshot.ts",
+    "gen:contracts": "node scripts/generate-contracts-snapshot.js",
+    "perf:check": "node scripts/check-perf-budget.js",
+    "validate:phase3_2": "node scripts/validate-phase-3-2.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
