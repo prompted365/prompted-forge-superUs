@@ -1,0 +1,72 @@
+{
+  "version": "3.1.0",
+  "snapshot_date": "2025-08-17T09:03:00Z",
+  "mcp_protocol_types": {
+    "MCPRequest": {
+      "id": "string",
+      "method": "string",
+      "params": "any"
+    },
+    "MCPResponse": {
+      "id": "string",
+      "result": "any | undefined",
+      "error": "MCPError | undefined"
+    },
+    "MemoryOperation": [
+      "STORE",
+      "RETRIEVE", 
+      "SEARCH",
+      "UPDATE",
+      "DELETE",
+      "BATCH_STORE",
+      "BATCH_RETRIEVE"
+    ],
+    "ContextMessage": {
+      "role": "user | assistant | system | tool",
+      "content": "string",
+      "timestamp": "Date",
+      "metadata": "Record<string, any>"
+    },
+    "ExtractedEntity": {
+      "text": "string",
+      "type": "string",
+      "confidence": "number",
+      "start": "number",
+      "end": "number"
+    },
+    "SentimentAnalysis": {
+      "polarity": "number",
+      "subjectivity": "number",
+      "confidence": "number",
+      "label": "positive | negative | neutral"
+    },
+    "ContextAnalysis": {
+      "messages": "ContextMessage[]",
+      "entities": "ExtractedEntity[]",
+      "intent": "string",
+      "sentiment": "SentimentAnalysis",
+      "topics": "string[]",
+      "complexity_score": "number"
+    },
+    "MemoryTierRouting": {
+      "tier": "working | episodic | semantic | shared",
+      "reason": "string",
+      "confidence": "number",
+      "fallback_tiers": "string[]"
+    }
+  },
+  "error_codes": {
+    "protocol_range": "4000-4099",
+    "connection_range": "4100-4199", 
+    "context_range": "4200-4299",
+    "bridge_range": "4300-4399",
+    "server_range": "4400-4499"
+  },
+  "core_interfaces": [
+    "IMCPServer",
+    "IMemoryBridge", 
+    "IContextAnalyzer",
+    "IMCPConnection",
+    "IMCPRequestHandler"
+  ]
+}
