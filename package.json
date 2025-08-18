@@ -1,6 +1,6 @@
 {
   "name": "prompted-forge",
-  "version": "0.1.0",
+  "version": "0.3.4",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -19,7 +19,12 @@
     "typecheck:mcp": "npm run -w @prompted-forge/mcp typecheck",
     "clean": "turbo run clean",
     "db:setup": "scripts/setup-db.sh",
-    "nexus:test": "curl http://localhost:8000/health"
+    "nexus:test": "curl http://localhost:8000/health",
+    "server": "npm run -w @prompted-forge/mcp server",
+    "server:dev": "npm run -w @prompted-forge/mcp server:dev",
+    "docker:build": "docker build -t prompted-forge:local .",
+    "helm:lint": "helm lint deploy/helm/prompted-forge",
+    "helm:template": "helm template pf-test deploy/helm/prompted-forge --values deploy/helm/prompted-forge/values.dev.yaml"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",

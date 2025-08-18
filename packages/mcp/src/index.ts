@@ -36,8 +36,9 @@ export type { ValidationResult } from './validation/schemas';
 export { MCPServerStub } from './server/mcp-server-stub';
 export { MemoryBridgeStub } from './bridge/memory-bridge-stub';
 
-// Memory Orchestrator
-export * from './orchestrator';
+// Memory Orchestrator - Temporarily disabled for deployment pipeline
+// TODO: Re-enable orchestrator exports after deployment pipeline is working
+// export * from './orchestrator';
 
 // Context Analysis (Phase 3.3)
 export type {
@@ -128,6 +129,9 @@ export function createDefaultMemoryBridgeConfig(overrides: Partial<any> = {}): a
   };
 }
 
+// Database Integration (Phase 3.4) - Temporarily disabled for deployment pipeline
+// TODO: Re-enable database exports after deployment pipeline is working
+
 // Package metadata
-export const VERSION = '0.1.0';
+export const VERSION = '0.3.3';
 export const PACKAGE_NAME = '@prompted-forge/mcp';

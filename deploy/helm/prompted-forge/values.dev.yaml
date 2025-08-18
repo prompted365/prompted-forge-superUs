@@ -1,0 +1,42 @@
+# Development environment values
+# Overrides default values.yaml for development deployments
+
+image:
+  tag: "main-latest"
+  pullPolicy: Always
+
+# Enable observability features for development
+env:
+  PF_ORCH_ENABLED: "true"
+  PF_CONTEXT_ENABLED: "true"
+  PF_POLICIES_ENABLED: "true"
+  PF_DB_ENABLED: "true"
+  PF_DB_TIER_ENABLED: "WORKING,EPISODIC"
+  PF_OTEL_ENABLED: "true"
+  PF_PROMETHEUS_ENABLED: "true"
+  PF_METRICS_EXPOSE: "true"
+  NODE_ENV: "development"
+
+# Enable monitoring
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 10s
+    scrapeTimeout: 5s
+
+# Lower resource limits for development
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+# More relaxed probes
+livenessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 10
+readinessProbe:
+  initialDelaySeconds: 3
+  periodSeconds: 5

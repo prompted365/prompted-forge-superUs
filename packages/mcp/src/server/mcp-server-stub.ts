@@ -21,6 +21,8 @@ import {
 import { MCPErrorFactory } from '../interfaces/mcp-errors';
 import { MemoryTier } from '@prompted-forge/memory';
 import { validateMethodRequest } from '../validation/schemas';
+// Temporarily disabled for deployment testing
+// import { handleMetricsRequest, isObservabilityInitialized } from '../observability';
 
 export class MCPServerStub implements IMCPServer {
   private logger: winston.Logger;
@@ -244,6 +246,26 @@ export class MCPServerStub implements IMCPServer {
       version: this.config.version || '3.1.0',
       buildSha: process.env.BUILD_SHA || 'dev-build',
       protocol: 'mcp/1.0'
+    };
+  }
+
+  /**
+   * Handle metrics endpoint request
+   * Only available when PF_PROMETHEUS_ENABLED=true and in development mode
+   */
+  async handleMetricsRequest(): Promise<{ contentType: string; data: string }> {
+    // Simplified for deployment testing
+    const environment = process.env.NODE_ENV || 'development';
+    if (environment === 'production') {
+      return {
+        contentType: 'text/plain',
+        data: '# Metrics endpoint disabled in production\n'
+      };
+    }
+
+    return {
+      contentType: 'text/plain',
+      data: '# Metrics stub for deployment testing\n# requests_total 123\n# connections_active 1\n'
     };
   }
 

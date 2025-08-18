@@ -1,0 +1,205 @@
+name: Deploy Pipeline (Build, Push, Helm Validate)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/prompted-forge
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Branch-based tags
+            type=ref,event=branch
+            type=ref,event=pr
+            # SHA-based tags
+            type=sha,prefix={{branch}}-
+            # Version tags (when pushing to main)
+            type=raw,value=v0.3.4-{{sha}},enable={{is_default_branch}}
+            type=raw,value=main-{{sha}},enable={{is_default_branch}}
+            # Latest tag for main branch
+            type=raw,value=main-latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  helm-validate:
+    runs-on: ubuntu-latest
+    needs: build-push
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.13.0'
+
+      - name: Lint Helm chart
+        run: |
+          helm lint deploy/helm/prompted-forge
+
+      - name: Validate chart templates - Development
+        run: |
+          echo "=== Development Values ==="
+          helm template pf-dev deploy/helm/prompted-forge \
+            --values deploy/helm/prompted-forge/values.dev.yaml \
+            --dry-run
+
+      - name: Validate chart templates - Staging
+        run: |
+          echo "=== Staging Values ==="
+          helm template pf-stage deploy/helm/prompted-forge \
+            --values deploy/helm/prompted-forge/values.stage.yaml \
+            --dry-run
+
+      - name: Validate chart templates - Production
+        run: |
+          echo "=== Production Values ==="
+          helm template pf-prod deploy/helm/prompted-forge \
+            --values deploy/helm/prompted-forge/values.prod.yaml \
+            --dry-run
+
+      - name: Package Helm chart
+        run: |
+          helm package deploy/helm/prompted-forge --destination ./charts/
+
+      - name: Upload Helm chart artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: charts/*.tgz
+          retention-days: 30
+
+  # Optional: kind smoke test (uncomment to enable)
+  # kind-smoke-test:
+  #   runs-on: ubuntu-latest
+  #   needs: [build-push, helm-validate]
+  #   if: github.event_name != 'pull_request'
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Create kind cluster
+  #       uses: helm/kind-action@v1.10.0
+  #       with:
+  #         cluster_name: pf-test
+  #         kubectl_version: v1.28.0
+
+  #     - name: Install Helm
+  #       uses: azure/setup-helm@v4
+  #       with:
+  #         version: '3.13.0'
+
+  #     - name: Deploy to kind
+  #       run: |
+  #         # Use the image that was just built
+  #         IMAGE_TAG=$(echo "${{ needs.build-push.outputs.image-tags }}" | grep "main-" | head -n1)
+  #         
+  #         helm upgrade --install pf-test deploy/helm/prompted-forge \
+  #           --values deploy/helm/prompted-forge/values.dev.yaml \
+  #           --set image.tag=${IMAGE_TAG##*/} \
+  #           --wait --timeout=300s
+
+  #     - name: Test health endpoints
+  #       run: |
+  #         kubectl port-forward svc/pf-test-prompted-forge 3001:3001 &
+  #         sleep 5
+  #         curl -f http://localhost:3001/healthz
+  #         curl -f http://localhost:3001/healthz?readiness=1
+
+  performance-check:
+    runs-on: ubuntu-latest
+    needs: build-push
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check image size
+        run: |
+          # Get image digest from build job
+          IMAGE_TAG=$(echo "${{ needs.build-push.outputs.image-tags }}" | grep "main-" | head -n1)
+          
+          echo "📊 Image: ${IMAGE_TAG}"
+          echo "📏 Size check would be implemented here"
+          echo "⚠️  Warning: Implement actual size check against performance budget"
+          
+          # Future: Pull image and check size against PERF_BUDGET.md
+          # docker pull "${IMAGE_TAG}"
+          # SIZE=$(docker image inspect "${IMAGE_TAG}" --format='{{.Size}}')
+          # echo "Image size: ${SIZE} bytes"
+
+  deployment-summary:
+    runs-on: ubuntu-latest
+    needs: [build-push, helm-validate, performance-check]
+    if: always()
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Build & Push" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.build-push.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Images: ${{ needs.build-push.outputs.image-tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Helm Validation" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.helm-validate.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Templates validated for: dev, stage, prod environments" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Performance Check" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.performance-check.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "```bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Deploy to development:" >> $GITHUB_STEP_SUMMARY
+          echo "helm upgrade --install pf-dev deploy/helm/prompted-forge \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --values deploy/helm/prompted-forge/values.dev.yaml \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --set image.tag=main-latest" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY

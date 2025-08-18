@@ -1,0 +1,99 @@
+# Production environment values
+# Security-focused, stable, and performance-optimized configuration
+
+replicaCount: 3
+
+image:
+  # Always use specific version tags in production
+  tag: "v0.3.4-stable"
+  pullPolicy: IfNotPresent
+
+# Conservative feature flags - enable only tested features
+env:
+  PF_ORCH_ENABLED: "true"
+  PF_CONTEXT_ENABLED: "false"  # Enable after thorough testing
+  PF_POLICIES_ENABLED: "false"  # Enable after thorough testing
+  PF_DB_ENABLED: "true"
+  PF_DB_TIER_ENABLED: "WORKING,EPISODIC"  # Conservative tiers
+  PF_OTEL_ENABLED: "false"  # Enable only when monitoring stack is ready
+  PF_PROMETHEUS_ENABLED: "false"  # Enable only when monitoring stack is ready
+  PF_METRICS_EXPOSE: "false"  # Never expose metrics in production
+  NODE_ENV: "production"
+
+# Disable monitoring until explicitly configured
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+# Production-grade resources
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Enable autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Enable pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Rolling update strategy - zero downtime
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# Anti-affinity to ensure high availability
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - prompted-forge
+      topologyKey: kubernetes.io/hostname
+
+# Production-grade security
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+
+podSecurityContext:
+  fsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+# Stricter probes for production
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3

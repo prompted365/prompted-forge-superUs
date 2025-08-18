@@ -1,0 +1,99 @@
+image:
+  repository: ghcr.io/prompted365/prompted-forge
+  tag: "main-latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 3001
+  targetPort: 3001
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: prompted-forge.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  # We recommend starting with these and adjusting based on load
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Environment variables and feature flags
+env:
+  # Core feature flags (conservative defaults)
+  PF_ORCH_ENABLED: "true"
+  PF_CONTEXT_ENABLED: "false"
+  PF_POLICIES_ENABLED: "false"
+  
+  # Database flags (disabled by default)
+  PF_DB_ENABLED: "false"
+  PF_DB_TIER_ENABLED: ""
+  
+  # Observability flags (disabled by default)
+  PF_OTEL_ENABLED: "false"
+  PF_PROMETHEUS_ENABLED: "false"
+  
+  # Environment settings
+  NODE_ENV: "production"
+
+# Additional environment variables from secrets/configmaps
+envFrom: []
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Monitoring configuration
+monitoring:
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    scrapeTimeout: 10s
+    labels: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Deployment strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1

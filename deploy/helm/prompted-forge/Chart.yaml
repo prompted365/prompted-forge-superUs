@@ -1,0 +1,22 @@
+apiVersion: v2
+name: prompted-forge
+description: Prompted Forge MCP service - Production-ready memory management and context analysis
+type: application
+version: 0.3.4
+appVersion: "0.3.4"
+
+keywords:
+  - mcp
+  - memory
+  - context
+  - policy
+  - llm
+
+maintainers:
+  - name: Prompted Forge Team
+    email: support@prompted-forge.com
+
+sources:
+  - https://github.com/prompted365/prompted-forge
+
+home: https://prompted-forge.com

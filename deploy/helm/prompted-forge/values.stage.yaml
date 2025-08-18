@@ -1,0 +1,56 @@
+# Staging environment values
+# Production-like environment for testing before prod deployment
+
+replicaCount: 2
+
+image:
+  # Use specific version tags in staging
+  tag: "v0.3.4-latest"
+  pullPolicy: IfNotPresent
+
+# Conservative feature flags for staging (production-like)
+env:
+  PF_ORCH_ENABLED: "true"
+  PF_CONTEXT_ENABLED: "true"
+  PF_POLICIES_ENABLED: "false"  # Test policies separately
+  PF_DB_ENABLED: "true"
+  PF_DB_TIER_ENABLED: "WORKING,EPISODIC,SEMANTIC"
+  PF_OTEL_ENABLED: "true"
+  PF_PROMETHEUS_ENABLED: "true"
+  PF_METRICS_EXPOSE: "false"  # No metrics exposure in staging
+  NODE_ENV: "staging"
+
+# Enable monitoring but with less frequent scraping
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Production-like resources
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Enable pod disruption budget for high availability testing
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Use anti-affinity to spread pods across nodes
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - prompted-forge
+        topologyKey: kubernetes.io/hostname
